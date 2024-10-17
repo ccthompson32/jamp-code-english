@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Variables (customize as needed)
+PRINTER_NAME="HP_LaserJet_Pro_M2042"
+PRINTER_IP="192.168.1.100"  # Replace with actual printer IP
+DRIVER_PKG_URL="https://example.com/path/to/hp_driver.pkg"  # Replace with actual URL if applicable
+DRIVER_PKG="/tmp/hp_driver.pkg"
+PRINTER_LOCATION="Main Office"
+PRINTER_PROTOCOL="ipp"  # Can be changed to 'lpd' if needed
+PRINTER_URL="ipp://${PRINTER_IP}/ipp/print"
+
+echo "Starting the printer installation process..."
+
+# Step 1: Download the printer driver package (if not bundled in JAMF)
+echo "Downloading the printer driver from: $DRIVER_PKG_URL"
+curl -o "$DRIVER_PKG" "$DRIVER_PKG_URL"
+
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to download the driver package."
+  exit 1
+fi
+
+# Step 2: Install the printer driver package
+echo "Installing the printer driver..."
+sudo installer -pkg "$DRIVER_PKG" -target /
+
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to install the driver."
+  exit 1
+fi
+
+# Step 3: Add the printer
+echo "Adding printer: $PRINTER_NAME"
+sudo lpadmin -p "$PRINTER_NAME" \
+  -E \
+  -v "$PRINTER_URL" \
+  -P "/Library/Printers/PPDs/Contents/Resources/HP LaserJet Pro M2042.gz" \
+  -L "$PRINTER_LOCATION" \
+  -o printer-is-shared=false
+
+if [[ $? -eq 0 ]]; then
+  echo "Printer $PRINTER_NAME added successfully."
+else
+  echo "Error: Failed to add the printer."
+  exit 1
+fi
+
+# Step 4: Set the printer as default (optional)
+echo "Setting $PRINTER_NAME as the default printer..."
+sudo lpadmin -d "$PRINTER_NAME"
+
+# Step 5: Cleanup
+echo "Cleaning up..."
+rm -f "$DRIVER_PKG"
+
+echo "Printer installation completed successfully!"
+exit 0
